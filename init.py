@@ -10,10 +10,9 @@ bitwarden_file_organization = 'bitwarden_org.json'
 # Output path of the Keeper file
 keeper_file = 'keeper.json'
 
-# Datetime format in Bitwarden
-bitwarden_datetime_format = '%Y-%m-%dT%H:%M:%S.%fZ'
+# A flag to write the password change history into the note section
+password_history_log = False
 
-# A dictionary to translate Bitwarden types to the Keeper ones
 bitwarden_keeper_types = {
     # Numbers are for Bitwarden
     # Texts are for Keeper
@@ -29,6 +28,9 @@ keeper = {
 }
 bitwarden_folders = {}
 bitwarden_collenctions = {}
+bitwarden_org = {
+    'items': []
+}
 counter = 0    # Count all items
 counter_1 = 0  # Count items with type 1
 counter_2 = 0  # Count items with type 2
@@ -39,18 +41,18 @@ if os.path.isfile(bitwarden_file_normal):
     with open(bitwarden_file_normal, 'r', encoding='utf8') as bitwarden_json:
         bitwarden = json.load(bitwarden_json)
         bitwarden_items = bitwarden['items']
-        # Convert Bitwarden folders in a format that can be used eaiser during the convert
+        # Convert Bitwarden folders in a format that can be used more easily during the conversion
         for folder in bitwarden['folders']:
             bitwarden_folders[folder['id']] = folder['name']
 else:
     print(f"The file '{bitwarden_file_normal}' doesn't exist. Check it and try again.")
 
-# If there is any collections, merge it with the original one
+# If there are any collections, merge them with the original one
 if os.path.isfile(bitwarden_file_organization):
     with open(bitwarden_file_organization, 'r', encoding='utf8') as bitwarden_org_json:
         bitwarden_org = json.load(bitwarden_org_json)
         bitwarden_items += bitwarden_org['items']
-        # Convert Bitwarden collections in a format that can be used eaiser during the convert
+        # Convert Bitwarden collections in a format that can be used more easily during the conversion
         for collection in bitwarden_org['collections']:
             bitwarden_collenctions[collection['id']] = collection['name']
 else:
@@ -103,8 +105,8 @@ for bitwarden_item in bitwarden_items:
             )
             keeper_item['schema'].append('$oneTimeCode::1')
 
-        # Keep the record of password changes
-        if bitwarden_item['passwordHistory']:
+        # Keep a record of password changes
+        if bitwarden_item['passwordHistory'] and password_history_log:
             keeper_item['notes'] += '\n----- Password History -----\n'
             for password in bitwarden_item['passwordHistory']:
                 keeper_item['notes'] += f"{str(password['password'])}  --  {str(password['lastUsedDate'])}\n"
@@ -114,8 +116,8 @@ for bitwarden_item in bitwarden_items:
 
     # If the Bitwarden item is a secure note
     if bitwarden_item['type'] == 2:
-        # Convert the UTC time (Bitwarden) to Epoch (Keeper)
-        utc_creation_date = datetime.strptime(bitwarden_item['creationDate'], bitwarden_datetime_format)
+        # Convert the UTC (Bitwarden) to Epoch (Keeper)
+        utc_creation_date = datetime.strptime(bitwarden_item['creationDate'], '%Y-%m-%dT%H:%M:%S.%fZ')
         epoch_creation_date = (utc_creation_date - datetime(1970, 1, 1)).total_seconds()
         epoch_creation_date = int(str(int(epoch_creation_date)).ljust(13, '0'))
 
@@ -140,7 +142,7 @@ for bitwarden_item in bitwarden_items:
 
     # If the Bitwarden item is a card
     if bitwarden_item['type'] == 3:
-        # Form the base JSON format of a cards in Keeper
+        # Form the base JSON format of cards in Keeper
         keeper_item = {
             'title': bitwarden_item['name'].strip(),
             'notes': bitwarden_item['notes'].replace( '\u0010', '') if bitwarden_item['notes'] else '',
@@ -185,7 +187,7 @@ for bitwarden_item in bitwarden_items:
                 }
             )
 
-    # Add the new formed Keeper item into a dictionary
+    # Add the newly formed Keeper item into a dictionary
     keeper['records'].append(keeper_item)
 
     # Count the number of items
